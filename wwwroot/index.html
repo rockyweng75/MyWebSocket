@@ -27,6 +27,18 @@
         </div>
     </div>
     <div class="row mb-3">
+        <label for="target" class="col-2 col-form-label">對象:</label>
+        <div class="col-10">
+            <div class="input-group">
+                <select id="targetOption" class="form-control" disabled >
+                    <option value="ALL">所有人</option>
+                    <option value="One">密語</option>
+                </select>
+                <input id="target" class="form-control" disabled ></input>
+            </div>
+        </div>
+    </div>
+    <div class="row mb-3">
         <label for="sendMessage" class="col-2 col-form-label">交談:</label>
         <div class="col-10">
             <div class="input-group">
@@ -58,6 +70,8 @@
         var stateLabel = document.getElementById("stateLabel");
         var userName = document.getElementById("userName");
         var password = document.getElementById("password");
+        var targetOption = document.getElementById("targetOption");
+        var target = document.getElementById("target");
         var sendMessage = document.getElementById("sendMessage");
         var sendButton = document.getElementById("sendButton");
         var commsLog = document.getElementById("commsLog");
@@ -74,6 +88,7 @@
             function disable() {
                 userName.disabled = false;
                 password.disabled = false;
+                targetOption.disabled = true;
                 sendMessage.disabled = true;
                 sendButton.disabled = true;
                 closeButton.hidden = true;
@@ -81,6 +96,7 @@
             function enable() {
                 userName.disabled = true;
                 password.disabled = true;
+                targetOption.disabled = false;
                 sendMessage.disabled = false;
                 sendButton.disabled = false;
                 closeButton.hidden = false;
@@ -119,6 +135,11 @@
             }
         }
 
+        targetOption.onchange = function (event) {
+            target.value = '';
+            target.toggleAttribute('disabled', event.target[0].selected);
+        };
+
         closeButton.onclick = function () {
             if (!socket || socket.readyState !== WebSocket.OPEN) {
                 alert("socket not connected");
@@ -130,7 +151,7 @@
             if (!socket || socket.readyState !== WebSocket.OPEN) {
                 alert("socket not connected");
             }
-            var data = JSON.stringify({ UserId: userName.value, Message: sendMessage.value });
+            var data = JSON.stringify({ UserId: userName.value, ToUser: target.value, Message: sendMessage.value });
             socket.send(data);
         };
 
@@ -175,7 +196,6 @@
                     method: 'post',
                     mode: 'cors'
                 })
-                .then(response => response.toString())
         }
 
         function htmlEscape(str) {

@@ -15,14 +15,14 @@ namespace MyTest.Controllers
             this.logger = logger;
         }
         //REF: https://radu-matei.com/blog/aspnet-core-websockets-middleware/
-        ConcurrentDictionary<int, WebSocket> WebSockets = new ConcurrentDictionary<int, WebSocket>();
+        ConcurrentDictionary<string, WebSocket> WebSockets = new ConcurrentDictionary<string, WebSocket>();
 
-        public async Task ProcessWebSocket(WebSocket webSocket) 
+        public async Task ProcessWebSocket(string user, WebSocket webSocket) 
         {
-            WebSockets.TryAdd(webSocket.GetHashCode(), webSocket);
+            WebSockets.TryAdd(user, webSocket);
             var buffer = new byte[1024 * 4];
             var res = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            var model = new MyMessage(){ UserId = "訪客" };
+            var model = new MyMessage(){ UserId = user };
             while (!res.CloseStatus.HasValue) {
                 var cmd = Encoding.UTF8.GetString(buffer, 0, res.Count);
                 if (!string.IsNullOrEmpty(cmd)) {
@@ -40,7 +40,7 @@ namespace MyTest.Controllers
                 res = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
             await webSocket.CloseAsync(res.CloseStatus.Value, res.CloseStatusDescription, CancellationToken.None);
-            WebSockets.TryRemove(webSocket.GetHashCode(), out var removed);
+            WebSockets.TryRemove(user, out var removed);
             model!.Message = $"{model.UserId} left the room.";
             Broadcast(model);
         }
@@ -57,15 +57,20 @@ namespace MyTest.Controllers
         }
 
         //todo
-        public void PrivateMessage(MyMessage model) 
+        public async void PrivateMessage(MyMessage model) 
         {
             var buff = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(model));
             var data = new ArraySegment<byte>(buff, 0, buff.Length);
-            Parallel.ForEach(WebSockets.Values, async (webSocket) =>
-            {
-                if (webSocket.State == WebSocketState.Open)
-                    await webSocket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
-            });
+
+            var once = WebSockets.Where(o => o.Key == model.UserId).First();
+            var webSocket = once.Value;
+            if (webSocket.State == WebSocketState.Open)
+                await webSocket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
+
+            var target = WebSockets.Where(o => o.Key == model.ToUser).First();
+            webSocket = target.Value;
+            if (webSocket.State == WebSocketState.Open)
+                await webSocket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }

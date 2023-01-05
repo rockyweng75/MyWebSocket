@@ -22,8 +22,9 @@ namespace MyTest.Controllers
         {
             if (HttpContext.WebSockets.IsWebSocketRequest)
             {
+                var user = User.Claims.Where(o => o.Type == "user").First();
                 using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
-                await webSocketHandler.ProcessWebSocket(webSocket);
+                await webSocketHandler.ProcessWebSocket(user.Value, webSocket);
             }
             else
             {
