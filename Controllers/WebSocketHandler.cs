@@ -28,7 +28,14 @@ namespace MyTest.Controllers
                 if (!string.IsNullOrEmpty(cmd)) {
                     logger.LogInformation(cmd);
                     model = JsonConvert.DeserializeObject<MyMessage>(cmd);
-                    Broadcast(model!);
+                    if(string.IsNullOrEmpty(model!.ToUser)) 
+                    {
+                        Broadcast(model!);
+                    } 
+                    else 
+                    {
+                        PrivateMessage(model!);
+                    }
                 }
                 res = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
@@ -39,6 +46,18 @@ namespace MyTest.Controllers
         }
 
         public void Broadcast(MyMessage model) 
+        {
+            var buff = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(model));
+            var data = new ArraySegment<byte>(buff, 0, buff.Length);
+            Parallel.ForEach(WebSockets.Values, async (webSocket) =>
+            {
+                if (webSocket.State == WebSocketState.Open)
+                    await webSocket.SendAsync(data, WebSocketMessageType.Text, true, CancellationToken.None);
+            });
+        }
+
+        //todo
+        public void PrivateMessage(MyMessage model) 
         {
             var buff = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(model));
             var data = new ArraySegment<byte>(buff, 0, buff.Length);

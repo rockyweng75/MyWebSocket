@@ -10,16 +10,17 @@
     <h1>無人聊天室</h1>
     <p id="stateLabel">Closed</p>
     <div class="row mb-3">
-        <label for="connectionUrl" class="col-2 col-form-label">選擇聊天室:</label>
+        <label for="connectionUrl" class="col-2 col-form-label">登入:</label>
         <div class="col-10">
             <input id="connectionUrl" class="form-control" disabled/>
         </div>
     </div>
     <div class="row mb-3">
-        <label for="userName" class="col-2 col-form-label">輸入你的暱稱:</label>
+        <label for="userName" class="col-2 col-form-label">輸入你的帳號:</label>
         <div class="col-10">
             <div class="input-group">
                 <input id="userName" class="form-control"/>
+                <input id="password" type="password" class="form-control" placeholder="請輸入密碼"/>
                 <button id="connectButton" type="submit" class="btn btn-success">進入聊天室</button>
                 <button id="closeButton" class="btn btn-danger" hidden>離開聊天室</button>
             </div>
@@ -56,6 +57,7 @@
         var connectButton = document.getElementById("connectButton");
         var stateLabel = document.getElementById("stateLabel");
         var userName = document.getElementById("userName");
+        var password = document.getElementById("password");
         var sendMessage = document.getElementById("sendMessage");
         var sendButton = document.getElementById("sendButton");
         var commsLog = document.getElementById("commsLog");
@@ -71,12 +73,14 @@
         function updateState() {
             function disable() {
                 userName.disabled = false;
+                password.disabled = false;
                 sendMessage.disabled = true;
                 sendButton.disabled = true;
                 closeButton.hidden = true;
             }
             function enable() {
                 userName.disabled = true;
+                password.disabled = true;
                 sendMessage.disabled = false;
                 sendButton.disabled = false;
                 closeButton.hidden = false;
@@ -132,23 +136,47 @@
 
         connectButton.onclick = function() {
             stateLabel.innerHTML = "Connecting";
-            socket = new WebSocket(connectionUrl.value);
-            socket.onopen = function (event) {
-                updateState();
-       
-            };
-            socket.onclose = function (event) {
-                updateState();
-            };
-            socket.onerror = updateState;
-            socket.onmessage = function (event) {
-                var model = JSON.parse(event.data);
-                commsLog.innerHTML += '<tr>' +
-                    '<td class="commslog-server">' + model.UserId + '</td>' +
-                    '<td class="commslog-client">' + (model.ToUser == null ? ' ': model.ToUser) + '</td>' +
-                    '<td class="commslog-data">' + model.Message + '</td></tr>';
-            };
+
+            login()
+                .then(res=>{
+
+                    socket = new WebSocket(connectionUrl.value);
+                    socket.onopen = function (event) {
+                        updateState();
+            
+                    };
+                    socket.onclose = function (event) {
+                        updateState();
+                    };
+                    socket.onerror = updateState;
+                    socket.onmessage = function (event) {
+                        var model = JSON.parse(event.data);
+                        commsLog.innerHTML += '<tr>' +
+                            '<td class="commslog-server">' + model.UserId + '</td>' +
+                            '<td class="commslog-client">' + (model.ToUser == null ? ' ': model.ToUser) + '</td>' +
+                            '<td class="commslog-data">' + model.Message + '</td></tr>';
+                    };
+                })
+   
         };
+
+        function login()
+        {
+            var scheme = document.location.protocol;
+            var port = document.location.port ? (":" + document.location.port) : "";
+            var user = { UserId: userName.value, Password: password.value };
+             
+            return fetch(scheme + "//" + document.location.hostname + port + "/login", {
+                    body: JSON.stringify(user),
+                    credentials: 'same-origin',
+                    headers: new Headers({
+                        'Content-Type': 'application/json'
+                    }),
+                    method: 'post',
+                    mode: 'cors'
+                })
+                .then(response => response.toString())
+        }
 
         function htmlEscape(str) {
             return str.toString()

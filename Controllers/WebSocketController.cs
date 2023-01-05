@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 
 namespace MyTest.Controllers
 {
-    // [Authorize]
+    [Authorize]
     [ApiExplorerSettings(IgnoreApi = true)]
     public class WebSocketController : ControllerBase
     {
