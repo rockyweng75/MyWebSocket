@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using MyTest.Controllers;
+using MyTest.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

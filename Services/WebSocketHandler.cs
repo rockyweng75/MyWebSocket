@@ -4,7 +4,7 @@ using System.Text;
 using MyTest.Models;
 using Newtonsoft.Json;
 
-namespace MyTest.Controllers
+namespace MyTest.Services
 {
     public class WebSocketHandler 
     {
