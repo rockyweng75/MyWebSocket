@@ -2,7 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 
-namespace MyTest.Controllers
+namespace MyWebSocket.Controllers
 {
     // [Authorize]
     [ApiController]

@@ -1,4 +1,4 @@
-namespace MyTest.Models
+namespace MyWebSocket.Models
 {
     [Serializable]
     public class MyMessage

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <style>
+    </style>
+</head>
+<body>
+    <h1>WebSocket Sample Application</h1>
+    <p id="stateLabel">Ready to connect...</p>
+    <div class="row mb-3">
+        <label for="connectionUrl" class="col-2 col-form-label">登入:</label>
+        <div class="col-10">
+            <input id="connectionUrl" class="form-control" disabled/>
+        </div>
+    </div>
+    <div class="row mb-3">
+        <label for="userName" class="col-2 col-form-label">輸入你的帳號:</label>
+        <div class="col-10">
+            <div class="input-group">
+                <input id="userName" class="form-control"/>
+                <input id="password" type="password" class="form-control" placeholder="請輸入密碼"/>
+                <button id="connectButton" type="submit" class="btn btn-success">進入聊天室</button>
+                <button id="closeButton" class="btn btn-danger" hidden>離開聊天室</button>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        local video
+        <video id="localVideo"          
+            width="320" 
+            height="240" 
+            autoplay>
+        </video>
+        <p>
+            <button id="openLocalCamera">開始通話</button>
+            <!-- <button id="callButton">呼叫</button> -->
+            <button id="closeLocalCamera">結束通話</button>
+        </p>
+    </div>
+    <div>
+        remote video
+        <video id="remoteVideo"          
+            width="320" 
+            height="240" 
+            autoplay
+            playsinline>
+        </video>
+    </div>
+
+    <script src="./js/webRTC.js"></script>
+
+    <script>
+        var connectionUrl = document.getElementById("connectionUrl");
+        var connectButton = document.getElementById("connectButton");
+        var closeButton = document.getElementById("closeButton");
+        var stateLabel = document.getElementById("stateLabel");
+        var userName = document.getElementById("userName");
+        var password = document.getElementById("password");
+        var openLocalCamera = document.getElementById("openLocalCamera");
+        var closeLocalCamera = document.getElementById("closeLocalCamera");
+        var openRemoteCamera = document.getElementById("openRemoteCamera");
+        var closeRemoteCamera = document.getElementById("closeRemoteCamera");
+
+        var localVideo = document.getElementById("localVideo");
+        var remoteVideo = document.getElementById("remoteVideo");
+
+        var localStream;
+
+        userName.value = "User" + new Date().getTime();
+        var scheme = document.location.protocol === "https:" ? "wss" : "ws";
+        var port = document.location.port ? (":" + document.location.port) : "";
+
+        connectionUrl.value = scheme + "://" + document.location.hostname + port + "/telemeet" ;
+
+        function updateState() {
+            function disable() {
+                userName.disabled = false;
+                password.disabled = false;
+                // openCamera.disabled = true;
+                // closeCamera.disabled = true;
+                closeButton.hidden = true;
+            }
+            function enable() {
+                userName.disabled = true;
+                password.disabled = true;
+                // openCamera.disabled = false;
+                // closeCamera.disabled = false;
+                closeButton.hidden = false;
+            }
+
+            connectionUrl.disabled = true;
+            connectButton.hidden = true;
+
+            if (!socket) {
+                disable();
+            } else {
+                switch (socket.readyState) {
+                    case WebSocket.CLOSED:
+                        stateLabel.innerHTML = "Closed";
+                        disable();
+                        connectionUrl.disabled = false;
+                        connectButton.hidden = false;
+                        break;
+                    case WebSocket.CLOSING:
+                        stateLabel.innerHTML = "Closing...";
+                        disable();
+                        break;
+                    case WebSocket.CONNECTING:
+                        stateLabel.innerHTML = "Connecting...";
+                        disable();
+                        break;
+                    case WebSocket.OPEN:
+                        stateLabel.innerHTML = "Open";
+                        enable();
+                        break;
+                    default:
+                        stateLabel.innerHTML = "Unknown WebSocket State: " + htmlEscape(socket.readyState);
+                        disable();
+                        break;
+                }
+            }
+        }
+
+        closeButton.onclick = function () {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                alert("socket not connected");
+            }
+            socket.close(1000, "Closing from client");
+        };
+
+        closeLocalCamera.onclick = function () {
+            // if (!socket || socket.readyState !== WebSocket.OPEN) {
+            //     alert("socket not connected");
+            // }
+
+            localVideo.srcObject.getTracks().forEach(function(track) {
+                track.stop();
+            });
+            rtc.close();
+            rtc = null;
+        }
+
+        var rtc;
+
+        openLocalCamera.onclick = async function () {
+            // if (!socket || socket.readyState !== WebSocket.OPEN) {
+            //     alert("socket not connected");
+            // }
+            await start()
+            rtc.createOffer();
+        };
+
+        connectButton.onclick = function() {
+            login()
+                .then(res=>{
+
+                stateLabel.innerHTML = "Connecting";
+                socket = new WebSocket(connectionUrl.value);
+                socket.onopen = function (event) {
+                    updateState();
+         
+                };
+                socket.onclose = function (event) {
+                    updateState();
+        
+                };
+                socket.onerror = updateState;
+             
+                socket.onmessage = async function (evt) {
+                    if(!rtc) await start()
+
+                    // 對方斷開
+                    if(evt.data === 'disconnection'){
+                        if(!rtc) rtc.close()
+                    } else {
+                        var message = JSON.parse(evt.data)
+                        console.log('onmessage', message)
+                        if(message.sdp){
+                            await rtc.pc.setRemoteDescription(message.sdp)
+                            // 當接收到 offer 時，要回應一個 answer
+                            console.log(rtc.pc)
+                            if (message.sdp.type == "offer"){
+                                rtc.createAnswer();
+                            }
+                        } else {
+                            // 接收對方的 candidate 並加入自己的 RTCPeerConnection
+                            rtc.pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+                        }
+                    }
+       
+                };
+            })
+        };
+
+        async function start(){
+            try{
+                var stream = await navigator.mediaDevices.getUserMedia({ "audio": false, "video": true })
+                localVideo.srcObject = stream;
+                rtc = new WebRTC(socket, stream);
+                rtc.pc.onaddstream = e => { 
+                    if(!remoteVideo.srcObject && e.stream){
+                        remoteVideo.srcObject = e.stream
+                        console.log('接收流並顯示於遠端視訊！', e);
+                    }
+                }
+                rtc.addStream(stream);
+
+            } catch (e){
+                console.error(e)
+                alert('無法開啟攝影機')
+            };
+        }
+
+        function login()
+        {
+            var scheme = document.location.protocol;
+            var port = document.location.port ? (":" + document.location.port) : "";
+            var user = { UserId: userName.value, Password: password.value };
+             
+            return fetch(scheme + "//" + document.location.hostname + port + "/login", {
+                    body: JSON.stringify(user),
+                    credentials: 'same-origin',
+                    headers: new Headers({
+                        'Content-Type': 'application/json'
+                    }),
+                    method: 'post',
+                    mode: 'cors'
+                })
+        }
+
+        function htmlEscape(str) {
+            return str.toString()
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        
+
+    </script>
+</body>
+</html>

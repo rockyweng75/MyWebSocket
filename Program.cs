@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using MyTest.Controllers;
-using MyTest.Services;
+using MyWebSocket.Controllers;
+using MyWebSocket.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +16,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddSingleton<WebSocketHandler>();
+builder.Services.AddSingleton<SignalingHandler>();
 
 var app = builder.Build();
 

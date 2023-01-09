@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
-using MyTest.Models;
+using MyWebSocket.Models;
 using Newtonsoft.Json;
 
-namespace MyTest.Services
+namespace MyWebSocket.Services
 {
     public class WebSocketHandler 
     {
